@@ -1,6 +1,10 @@
-aiogram==2.26
+# Основные зависимости
+aiogram==2.25.1           # Стабильная версия 2.x (последняя)
 requests==2.31.0
 python-dotenv==1.0.0
 flask==3.0.0
 gunicorn==21.2.0
 apscheduler==3.10.4
+
+# Для IMAP (встроено в Python, но для надежности)
+imaplib2==2.57.0           # Улучшенный IMAP клиент

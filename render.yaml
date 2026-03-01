@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: telegram-temp-mail-bot
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    envVars:
+      - key: BOT_TOKEN
+        sync: false  # будет вводиться вручную
+      - key: EMAIL_ADDRESS
+        value: verification@walle.ndjp.net
+      - key: EMAIL_PASSWORD
+        sync: false  # будет вводиться вручную
+      - key: IMAP_SERVER
+        value: imap.mail.ru
+      - key: IMAP_PORT
+        value: 993
+      - key: PING_INTERVAL
+        value: 300
+      - key: RENDER_URL
+        sync: false  # будет установлен автоматически
+    autoDeploy: true

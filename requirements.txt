@@ -1,4 +1,3 @@
-# Минимальные версии для Python 3.14
 pydantic==2.12.2
 pydantic-core==2.41.5
 aiogram==3.17.0

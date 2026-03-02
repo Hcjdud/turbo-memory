@@ -20,7 +20,7 @@ ENV RUSTUP_HOME=/opt/rustup
 RUN mkdir -p $CARGO_HOME $RUSTUP_HOME
 
 # Копируем requirements
-COPY requirements.txt .
+COPY requirements.txt
 
 # Устанавливаем pydantic с компиляцией
 RUN pip install --no-cache-dir --upgrade pip && \
@@ -39,7 +39,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 WORKDIR /app
 
 # Копируем код бота
-COPY main.py .
+COPY main.py
 
 # Открываем порт
 EXPOSE 8080

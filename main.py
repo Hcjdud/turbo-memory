@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 import os
-import sys
 import asyncio
 import logging
+import random
+import string
 import imaplib
 import email
 import re
-import random
-import string
 from datetime import datetime
 from email.header import decode_header
 
@@ -18,64 +17,45 @@ from aiogram.filters import Command
 from aiogram.types import Message, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from dotenv import load_dotenv
-from flask import Flask
-from threading import Thread
-import requests
-import time
+from starlette.applications import Starlette
+from starlette.routing import Route
+from starlette.requests import Request
+from starlette.responses import Response, PlainTextResponse
+import uvicorn
 
 load_dotenv()
 
-# Настройки
+# ========== НАСТРОЙКИ ==========
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 EMAIL_ADDRESS = os.getenv('EMAIL_ADDRESS')
 EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
 IMAP_SERVER = os.getenv('IMAP_SERVER', 'imap.mail.ru')
 IMAP_PORT = int(os.getenv('IMAP_PORT', 993))
+WEBHOOK_PATH = "/webhook"
+WEBHOOK_URL = os.getenv('RENDER_EXTERNAL_URL') + WEBHOOK_PATH
+PORT = int(os.getenv('PORT', 8000))
 
 if not BOT_TOKEN or not EMAIL_PASSWORD:
-    print("❌ Ошибка: BOT_TOKEN и EMAIL_PASSWORD обязательны")
-    sys.exit(1)
+    raise ValueError("❌ BOT_TOKEN и EMAIL_PASSWORD обязательны")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Бот
+# ========== БОТ ==========
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN))
 dp = Dispatcher()
 user_emails = {}
 
-# Keep-alive Flask
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "✅ Бот работает!"
-
-@app.route('/ping')
-def ping():
-    return "pong", 200
-
-def run_keep_alive():
-    port = int(os.environ.get('PORT', 8080))
-    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
-
-def self_ping():
-    url = os.getenv('RENDER_URL', 'http://localhost:8080')
-    while True:
-        try:
-            requests.get(f"{url}/ping", timeout=5)
-            logger.info("✅ Self-ping успешен")
-        except Exception as e:
-            logger.error(f"❌ Self-ping ошибка: {e}")
-        time.sleep(240)  # 4 минуты
-
+# ========== ФУНКЦИИ ПОЧТЫ ==========
 def generate_temp_email():
+    """Генерирует временный email"""
     random_str = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
     return f"{random_str}@walle.ndjp.net"
 
 def extract_code(text):
+    """Ищет код подтверждения"""
     patterns = [
-        r'\b(\d{3}-\d{3})\b',
+        r'\b(\d{3}-\d{3})\b',  # ваш формат 666-263
         r'\b(\d{6})\b',
         r'код[:\s]*(\d+)',
         r'code[:\s]*(\d+)',
@@ -87,6 +67,7 @@ def extract_code(text):
     return None
 
 async def check_mail(user_id, temp_email):
+    """Проверяет почту"""
     try:
         imap = imaplib.IMAP4_SSL(IMAP_SERVER, IMAP_PORT)
         imap.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
@@ -128,7 +109,7 @@ async def check_mail(user_id, temp_email):
                     imap.store(mail_id, '+FLAGS', '\\Seen')
                     imap.close()
                     imap.logout()
-                    return {'code': code, 'from': from_addr, 'subject': subject}
+                    return {'code': code, 'from': from_addr}
         
         imap.close()
         imap.logout()
@@ -137,6 +118,7 @@ async def check_mail(user_id, temp_email):
         logger.error(f"Ошибка: {e}")
         return None
 
+# ========== ОБРАБОТЧИКИ ==========
 @dp.message(Command('start'))
 async def cmd_start(message: Message):
     welcome = "👋 *Бот временных почт*\n\n/new — создать email\n/check — проверить код"
@@ -165,7 +147,7 @@ async def cmd_check(message: Message):
     result = await check_mail(user_id, user_emails[user_id]['email'])
     
     if result:
-        await message.answer(f"✅ *Код:* `{result['code']}`")
+        await message.answer(f"✅ *Код:* `{result['code']}`\nОт: {result['from']}")
     else:
         await message.answer("📭 Писем с кодами не найдено")
 
@@ -179,13 +161,41 @@ async def callback_check(callback):
     await callback.answer()
     await cmd_check(callback.message)
 
-async def main():
-    # Запускаем keep-alive в фоне
-    Thread(target=self_ping, daemon=True).start()
-    Thread(target=run_keep_alive, daemon=True).start()
-    
-    logger.info("🚀 Бот запущен")
-    await dp.start_polling(bot)
+# ========== WEBHOOK ==========
+async def webhook_handler(request: Request) -> Response:
+    """Принимает обновления от Telegram"""
+    try:
+        update_data = await request.json()
+        await dp.feed_update(bot, update_data)
+        return Response()
+    except Exception as e:
+        logger.error(f"Ошибка webhook: {e}")
+        return Response(status_code=500)
 
-if __name__ == '__main__':
+async def health_check(request: Request) -> PlainTextResponse:
+    """Для health check Render"""
+    return PlainTextResponse("OK")
+
+async def setup_webhook():
+    """Устанавливает webhook при старте"""
+    await bot.delete_webhook()
+    await bot.set_webhook(url=WEBHOOK_URL)
+    logger.info(f"✅ Webhook установлен на {WEBHOOK_URL}")
+
+async def main():
+    # Создаем Starlette приложение
+    app = Starlette(routes=[
+        Route(WEBHOOK_PATH, webhook_handler, methods=["POST"]),
+        Route("/healthcheck", health_check, methods=["GET"]),
+    ])
+
+    # Устанавливаем webhook
+    await setup_webhook()
+
+    # Запускаем сервер
+    config = uvicorn.Config(app, host="0.0.0.0", port=PORT, log_level="info")
+    server = uvicorn.Server(config)
+    await server.serve()
+
+if __name__ == "__main__":
     asyncio.run(main())

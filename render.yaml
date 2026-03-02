@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: telegram-bot
+    env: docker
+    repo: https://github.com/yourusername/your-repo.git
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: BOT_TOKEN
+        sync: false 
+      - key: EMAIL_ADDRESS
+        value: verification@walle.ndjp.net
+      - key: EMAIL_PASSWORD
+        sync: false 

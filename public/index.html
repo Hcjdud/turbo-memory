@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TempMail - Временная почта</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📧 Временная почта</h1>
+            <p>Получайте коды подтверждения от любых сервисов</p>
+        </header>
+
+        <div id="authSection" class="auth-section">
+            <div class="auth-card">
+                <h2>🔐 Вход / Регистрация</h2>
+                
+                <div id="emailStep" class="step active">
+                    <p class="info">Введите ваш реальный email для получения кода</p>
+                    <input type="email" id="userEmail" placeholder="Ваш email (например, ivan@gmail.com)">
+                    <button onclick="requestCode()">📨 Получить код</button>
+                    <div id="emailResult" class="result-message"></div>
+                </div>
+
+                <div id="codeStep" class="step">
+                    <p class="info">Введите код из письма</p>
+                    <p class="code-info">Код отправлен на <span id="sentEmail"></span></p>
+                    <input type="text" id="verificationCode" placeholder="Код (000-000)" maxlength="7">
+                    <button onclick="verifyCode()">✅ Подтвердить</button>
+                    <button class="secondary-btn" onclick="backToEmail()">← Назад</button>
+                    <div id="codeResult" class="result-message"></div>
+                </div>
+
+                <div id="userInfo" class="user-info" style="display: none;">
+                    <h3>✅ Вы успешно вошли</h3>
+                    <p class="info-text">Ваш временный email:</p>
+                    <p class="user-email" id="userTempEmail"></p>
+                    <p class="info-text">Используйте его для регистрации на сайтах</p>
+                    <button class="logout-btn" onclick="logout()">🚪 Выйти</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content" id="mainContent" style="display: none;">
+            <div class="left-column">
+                <div class="user-badge">
+                    <span class="badge-email" id="headerEmail"></span>
+                    <button class="small-logout" onclick="logout()">Выйти</button>
+                </div>
+            </div>
+
+            <div class="right-column">
+                <h2>📨 Последние коды подтверждения</h2>
+                <div class="messages-list" id="publicMessages">
+                    <div class="loading">Загрузка...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="my-messages-section" id="myMessagesSection" style="display: none;">
+            <h2>📬 Мои коды</h2>
+            <div class="messages-list" id="myMessages"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
